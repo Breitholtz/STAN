@@ -1,0 +1,9 @@
+import numpy as np
+import pandas as pd
+
+### in here we should wrangle the data to be scaled correctly 
+### and thereafter be in a form which our model can handle
+
+### from the paper: for numerical attributes they are min-max scaled, for categorical they are one-hot encoded
+### instead of modeling timestamps they use the difference between the times?
+
