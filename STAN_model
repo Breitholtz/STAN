@@ -1,0 +1,62 @@
+import numpy as np
+import sys
+import torch
+import torch.nn as nn
+from torch.distributions import Normal, OneHotCategorical
+import torch.nn.functional as F ## necessary?
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+#### Need: a GMM network to decode cont. vars, a softmax if we have categorical,
+#### losses for both cases (negative log likelihood for the cont. case; cross entropy for the categorical case),
+#### construct the window data and get the wanted row as labels, 
+class wCnn(nn.Module):
+    ## the window-CNN which learns the temporal and inter-attribute relations
+    ##
+    ## Layout: 64 3x3, BN, ReLU, 64 3x3, BN, ReLU, MaxPool, 128 3x3, BN, ReLU, 128 3x3, BN, ReLU, MaxPool
+    def __init__(self, input_dim):
+        super(FirstCnn, self).__init__()
+        self.conv64 = nn.Conv2d(1, 64, kernel_size=3, padding=1)
+        self.conv128 = nn.Conv2d(1, 128, kernel_size=3, padding=1)
+        self.bn64= nn.BatchNorm2d(64)
+        self.bn128= nn.BatchNorm2d(128)
+        self.relu=nn.ReLU(inplace=True)
+        self.maxpool=nn.MaxPool2d(kernel_size=2, stride=2)
+    def forward(self, input_batch):
+        x = input_batch
+        x = helper(x,64)
+        x = helper(x,64)
+        x = self.maxpool(x)
+        x = helper(x,128)
+        x = helper(x,128)
+        x = self.maxpool(x)
+        ### pass it to either decoder part after this
+        return x
+    def helper(x,size):
+        if size==64:
+            x = self.conv64(x)
+            x = self.bn64(x)
+            x = self.relu(x)
+        elif size==128:
+            x = self.conv128(x)
+            x = self.bn128(x)
+            x = self.relu(x)
+        else:
+            print("Size "+str(size)+" not supported!\n")
+            sys.exit(-1)
+        return x
+        
+class mixtureDensityNetwork(nn.Module):
+    # three parallel FC layers which model \alpha_i, \mu_i and \sigma_i resp.
+    # \alpha_i go to softmax s.t \sum_i \alpha_i=1
+    
+    def init(self,input_dim,output_dim, num_mixture_components):
+        '''
+        self.input_dim=input_dim
+        self.num_components=num_mixture_components
+        self.output_dim=output_dim
+        '''
+class GMMNet(nn.Module):
+    ### here we define the GMM-layer that should learn one part of the parameters in mixtureDensityNetwork
+    def init(self):
+        print("TODO")
