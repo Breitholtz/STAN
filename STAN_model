@@ -14,15 +14,27 @@ class wCnn(nn.Module):
     ## the window-CNN which learns the temporal and inter-attribute relations
     ##
     ## Layout: 64 3x3, BN, ReLU, 64 3x3, BN, ReLU, MaxPool, 128 3x3, BN, ReLU, 128 3x3, BN, ReLU, MaxPool
-    def __init__(self, input_dim):
-        super(FirstCnn, self).__init__()
+    def __init__(self, input_dim,output_dim,decoder_architecture,decoder):
+        super().__init__()
+        self.input_dim=input_dim
+        
         self.conv64 = nn.Conv2d(1, 64, kernel_size=3, padding=1)
         self.conv128 = nn.Conv2d(1, 128, kernel_size=3, padding=1)
         self.bn64= nn.BatchNorm2d(64)
         self.bn128= nn.BatchNorm2d(128)
         self.relu=nn.ReLU(inplace=True)
         self.maxpool=nn.MaxPool2d(kernel_size=2, stride=2)
+        assert self.decoder_architecture in ['gmm','softmax'], "Decoder not recognised"
+        ## I think this is the batch size
+        decoder_input_dim=256
+        if self.decoder_architecture=='gmm':
+            ## create the gmm layers
+            self.decoder=mixtureDensityNetwork(decoder_input_dim,output_dim,num_components)
+        else:
+            self.decoder=softmaxNetwork(decoder_input_dim,output_dim)
+        
     def forward(self, input_batch):
+        ## here we should give it to the mask first
         x = input_batch
         x = helper(x,64)
         x = helper(x,64)
@@ -31,6 +43,9 @@ class wCnn(nn.Module):
         x = helper(x,128)
         x = self.maxpool(x)
         ### pass it to either decoder part after this
+        results=self.decoder(x)
+        
+        
         return x
     def helper(x,size):
         if size==64:
@@ -59,4 +74,7 @@ class mixtureDensityNetwork(nn.Module):
 class GMMNet(nn.Module):
     ### here we define the GMM-layer that should learn one part of the parameters in mixtureDensityNetwork
     def init(self):
+        print("TODO")
+class softmaxNet(nn.module):
+    def init(self,input_dim,output_dim):
         print("TODO")
