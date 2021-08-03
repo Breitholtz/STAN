@@ -17,7 +17,7 @@ class wCnn(nn.Module):
     ##
     ##
     ##
-    def __init__(self, input_dim,output_dim,decoder_architecture,decoder):
+    def __init__(self, input_dim,output_dim,decoder_architecture,decoder=None,num_components=1):
         super().__init__()
         self.input_dim=input_dim
         
@@ -27,6 +27,7 @@ class wCnn(nn.Module):
         self.bn128= nn.BatchNorm2d(128)
         self.relu=nn.ReLU(inplace=True)
         self.maxpool=nn.MaxPool2d(kernel_size=2, stride=2)
+        self.decoder_architecture=decoder_architecture
         assert self.decoder_architecture in ['gmm','softmax'], "Decoder not recognised"
         ## I think this is the batch size
         decoder_input_dim=256
@@ -96,20 +97,21 @@ class mixtureDensityNetwork(nn.Module):
     # three parallel FC layers which model \alpha_i, \mu_i and \sigma_i resp.
     # \alpha_i go to softmax s.t \sum_i \alpha_i=1
     
-    def init(self,input_dim,output_dim, num_mixture_components):
-        '''
+    def __init__(self,input_dim,output_dim, num_mixture_components):
         self.input_dim=input_dim
         self.num_components=num_mixture_components
         self.output_dim=output_dim
-        '''
+        
 class GMMNet(nn.Module):
     ### here we define the GMM-layer that should learn one part of the parameters in mixtureDensityNetwork
-    def __init__(self,input_dim,output_dim):
+    def __init__(self,input_dim,output_dim,num_components):
         super().__init__()
-        
+        self.input_dim=input_dim
+        self.output_dim=output_dim
+        self.num_component=num_component
     def forward():
         print("TODO")
-class softmaxNet(nn.Module):
+class softmaxNetwork(nn.Module):
     def __init__(self,input_dim,output_dim,hidden_dim=100):
         super().__init__()
         self.input_dim=input_dim
@@ -118,12 +120,13 @@ class softmaxNet(nn.Module):
          
     def forward(self,x):
         dec_layer = nn.Sequential(
-                nn.Linear(input_dim, hidden_dim),
+                nn.Linear(self.input_dim, self.hidden_dim),
                 nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim, output_dim),
+                nn.Linear(self.hidden_dim, self.output_dim),
                 nn.ReLU(inplace=True)
             )
-        dec_layer(x)
+        res=dec_layer(x)
+        return res
         
         
         
@@ -144,7 +147,8 @@ def synthesizer(historical_data,categorical_columns=[5,10,11,12,13],continuous_c
     for i in numeric_columns:
         num_data = historical_data.iloc[:, i]
         num_data = (num_data-np.amin(num_data))/(np.amax(num_data)-np.amin(num_data))
-        
+    
+    wCnn(1,2,'softmax')
     ### Here we pass each attribute into 
     
     ### We therefore save a model after training on each attribute.
