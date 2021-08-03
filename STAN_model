@@ -4,8 +4,10 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal, OneHotCategorical
 import torch.nn.functional as F ## necessary?
-
+import pandas as pd
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 
 #### Need: a GMM network to decode cont. vars, a softmax if we have categorical,
 #### losses for both cases (negative log likelihood for the cont. case; cross entropy for the categorical case),
@@ -13,7 +15,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class wCnn(nn.Module):
     ## the window-CNN which learns the temporal and inter-attribute relations
     ##
-    ## Layout: 64 3x3, BN, ReLU, 64 3x3, BN, ReLU, MaxPool, 128 3x3, BN, ReLU, 128 3x3, BN, ReLU, MaxPool
+    ##
+    ##
     def __init__(self, input_dim,output_dim,decoder_architecture,decoder):
         super().__init__()
         self.input_dim=input_dim
@@ -31,23 +34,32 @@ class wCnn(nn.Module):
             ## create the gmm layers
             self.decoder=mixtureDensityNetwork(decoder_input_dim,output_dim,num_components)
         else:
-            self.decoder=softmaxNetwork(decoder_input_dim,output_dim)
+            self.decoder=softmaxNetwork(input_dim,output_dim)
         
-    def forward(self, input_batch):
+    def forward(self, x):
         ## here we should give it to the mask first
-        x = input_batch
-        x = helper(x,64)
-        x = helper(x,64)
+        x=make_mask(x)
+        ## Base CNN-layout: 64 3x3, BN, ReLU, 64 3x3, BN, ReLU, MaxPool, 128 3x3, BN, ReLU, 128 3x3, BN, ReLU, MaxPool
+        
+        x = helper(self,x,64)
+        x = helper(self,x,64)
         x = self.maxpool(x)
-        x = helper(x,128)
-        x = helper(x,128)
+        x = helper(self,x,128)
+        x = helper(self,x,128)
         x = self.maxpool(x)
         ### pass it to either decoder part after this
-        results=self.decoder(x)
+        results=self.decoder.forward(x)
+        return results
+    def make_mask(self, x):
         
+        # print('masking', x, self.dim_in)
+        x = x[:, :-self.dim_in]
+           
+        #x = x * self.mask.to(device)
+        return x    
         
         return x
-    def helper(x,size):
+    def helper(self,x,size):
         if size==64:
             x = self.conv64(x)
             x = self.bn64(x)
@@ -60,7 +72,26 @@ class wCnn(nn.Module):
             print("Size "+str(size)+" not supported!\n")
             sys.exit(-1)
         return x
-        
+    
+    def loss(self, x, y, binary=False):
+        if self.decoder == 'gmm':
+            pi, normal = self.forward(x)
+            '''
+            if binary:
+                batch_loss = #self.gmm_network.binary_loss(pi, normal, y)
+            else:
+                batch_loss = #self.gmm_network.loss(pi, normal, y)
+            '''
+        else:
+            ## we do softmax as decoder
+            out = self.forward(x)
+            if y.size()[1] > 1:
+                y = torch.max(y, 1)[1].long()
+               
+            batch_loss = torch.nn.CrossEntropyLoss()(out, y)          
+        #self.memory.append(batch_loss.cpu().detach().numpy())
+        return batch_loss
+
 class mixtureDensityNetwork(nn.Module):
     # three parallel FC layers which model \alpha_i, \mu_i and \sigma_i resp.
     # \alpha_i go to softmax s.t \sum_i \alpha_i=1
@@ -73,8 +104,50 @@ class mixtureDensityNetwork(nn.Module):
         '''
 class GMMNet(nn.Module):
     ### here we define the GMM-layer that should learn one part of the parameters in mixtureDensityNetwork
-    def init(self):
+    def __init__(self,input_dim,output_dim):
+        super().__init__()
+        
+    def forward():
         print("TODO")
-class softmaxNet(nn.module):
-    def init(self,input_dim,output_dim):
-        print("TODO")
+class softmaxNet(nn.Module):
+    def __init__(self,input_dim,output_dim,hidden_dim=100):
+        super().__init__()
+        self.input_dim=input_dim
+        self.output_dim=output_dim
+        self.hidden_dim=hidden_dim
+         
+    def forward(self,x):
+        dec_layer = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(inplace=True),
+                nn.Linear(hidden_dim, output_dim),
+                nn.ReLU(inplace=True)
+            )
+        dec_layer(x)
+        
+        
+        
+        
+        
+from keras.utils import to_categorical
+def synthesizer(historical_data,categorical_columns=[5,10,11,12,13],continuous_columns=[1,4,6,7,8,15],numeric_columns=[0, 2, 3, 9, 14, 16, 17, 18]):
+    
+    ### we take out the categorical, numeric/integer and continuous variables; we preprocess them
+    ### and put them into lists. Thus we can go through and train for each attribute.
+    for i in categorical_columns:
+        disc_data = historical_data.iloc[:, i]
+        disc_data = to_categorical(disc_data)
+        #print(disc_data)
+        ## a note here is that most of the categorical variables are constant
+    for i in continuous_columns:
+        cont_data = historical_data.iloc[:, i]
+    for i in numeric_columns:
+        num_data = historical_data.iloc[:, i]
+        num_data = (num_data-np.amin(num_data))/(np.amax(num_data)-np.amin(num_data))
+        
+    ### Here we pass each attribute into 
+    
+    ### We therefore save a model after training on each attribute.
+    
+data=pd.read_csv("~/Downloads/one_PatientADNI.csv")
+synthesizer(data)
